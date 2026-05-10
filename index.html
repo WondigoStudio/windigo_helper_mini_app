@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Windigo Bot — Mini App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -95,6 +96,14 @@ body{background:#0a0a0f;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFo
 .count-num{font-size:20px;font-weight:600;color:var(--neon);display:block;line-height:1}
 .count-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .fest-card .link-btn{margin-top:12px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;text-decoration:none}
+
+/* Скелетон загрузки */
+.skeleton{background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:20px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;min-height:80px}
+
+.error-msg{text-align:center;padding:32px 16px;color:var(--muted);font-size:14px}
+.error-msg i{font-size:32px;display:block;margin-bottom:8px;color:var(--neon)}
 </style>
 </head>
 <body>
@@ -106,44 +115,22 @@ body{background:#0a0a0f;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFo
 
   <div id="pg-stats" class="page active">
     <p class="section-title">Моя активность</p>
-    <div class="stat-grid">
-      <div class="stat-card accent">
-        <div class="label">Текущий стрик</div>
-        <div class="value">14</div>
-        <div class="sub">дней подряд</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Рекорд</div>
-        <div class="value">31</div>
-        <div class="sub">макс. стрик</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Комментарии</div>
-        <div class="value">247</div>
-        <div class="sub">всего</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Активный день</div>
-        <div class="value" style="font-size:16px;margin-top:4px">пятница</div>
-        <div class="sub">чаще всего</div>
+    <div id="stats-content">
+      <!-- скелетон пока грузится -->
+      <div class="stat-grid">
+        <div class="skeleton-card"><div class="skeleton" style="width:60%;margin-bottom:8px"></div><div class="skeleton" style="width:40%;height:30px"></div></div>
+        <div class="skeleton-card"><div class="skeleton" style="width:60%;margin-bottom:8px"></div><div class="skeleton" style="width:40%;height:30px"></div></div>
+        <div class="skeleton-card"><div class="skeleton" style="width:60%;margin-bottom:8px"></div><div class="skeleton" style="width:40%;height:30px"></div></div>
+        <div class="skeleton-card"><div class="skeleton" style="width:60%;margin-bottom:8px"></div><div class="skeleton" style="width:40%;height:30px"></div></div>
       </div>
     </div>
-
-    <div class="streak-bar">
-      <div class="top">
-        <span class="title">Прогресс к следующей неделе</span>
-        <span class="badge">14 / 21</span>
-      </div>
-      <div class="progress-track"><div class="progress-fill" style="width:66%"></div></div>
-    </div>
-
     <p class="section-title">Любимые теги</p>
     <div class="tag-list" id="tag-list"></div>
   </div>
 
   <div id="pg-top" class="page">
     <p class="section-title">По текущему стрику</p>
-    <div class="top-list" id="top-list"></div>
+    <div class="top-list" id="top-list"><div class="skeleton" style="height:60px;margin-bottom:8px"></div><div class="skeleton" style="height:60px;margin-bottom:8px"></div><div class="skeleton" style="height:60px"></div></div>
   </div>
 
   <div id="pg-vote" class="page">
@@ -153,7 +140,7 @@ body{background:#0a0a0f;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFo
 
   <div id="pg-fests" class="page">
     <p class="section-title">Ближайшие события</p>
-    <div class="fest-list" id="fest-list"></div>
+    <div class="fest-list" id="fest-list"><div class="skeleton" style="height:120px;margin-bottom:8px"></div><div class="skeleton" style="height:120px"></div></div>
   </div>
 </div>
 
@@ -173,6 +160,11 @@ body{background:#0a0a0f;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFo
 </nav>
 
 <script>
+// ─── НАСТРОЙКА: замени на реальный URL твоего сервера ───
+const API_BASE = "https://ТВОЙ_СЕРВЕР.com";
+// Если запускаешь локально для теста: "http://localhost:8000"
+// ────────────────────────────────────────────────────────
+
 function nav(page, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -180,45 +172,152 @@ function nav(page, btn) {
   btn.classList.add('active');
 }
 
-const tags = [
-  {name:'#F1', count:89, pct:100},
-  {name:'#Игры', count:61, pct:69},
-  {name:'#Фильмы', count:47, pct:53},
-  {name:'#Сериал', count:31, pct:35},
-  {name:'#Аниме', count:19, pct:21},
-];
-const tl = document.getElementById('tag-list');
-tags.forEach(t => {
-  tl.innerHTML += `<div class="tag-row">
-    <span class="tag-name">${t.name}</span>
-    <div class="tag-bar"><div class="tag-bar-fill" style="width:${t.pct}%"></div></div>
-    <span class="tag-count">${t.count}</span>
-  </div>`;
-});
+// ─── Получаем user_id из Telegram WebApp SDK ───
+const tg = window.Telegram?.WebApp;
+tg?.ready();
+tg?.expand();
 
-const tops = [
-  {n:'windigo_kz', streak:31, rank:1},
-  {n:'alex_f1fan', streak:22, rank:2},
-  {n:'marta_speed', streak:18, rank:3},
-  {n:'nitro_boy', streak:14, rank:4},
-  {n:'pit_lane99', streak:11, rank:5},
-  {n:'velvet_racer', streak:9, rank:6},
-];
-const topList = document.getElementById('top-list');
-const medals = ['🥇','🥈','🥉'];
-tops.forEach((u,i) => {
-  const isMe = u.streak === 14;
-  topList.innerHTML += `<div class="top-row${i===0?' gold':''}">
-    <span class="rank r${u.rank}">${medals[i]||u.rank}</span>
-    <div class="avatar">${u.n.slice(0,2).toUpperCase()}</div>
-    <div class="top-info">
-      <div class="top-name">@${u.n}${isMe?' <span class="badge" style="font-size:10px">Ты</span>':''}</div>
-      <div class="top-sub">активен сегодня</div>
-    </div>
-    <div class="streak-num">${u.streak} 🔥</div>
-  </div>`;
-});
+const tgUser = tg?.initDataUnsafe?.user;
+const userId = tgUser?.id || null;
 
+// ─── Загрузка статистики ───
+async function loadStats() {
+  if (!userId) {
+    document.getElementById('stats-content').innerHTML = `
+      <div class="error-msg">
+        <i class="ti ti-user-question"></i>
+        Открой через Telegram, чтобы увидеть свою статистику
+      </div>`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/stats/${userId}`);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("not_found");
+      throw new Error("server_error");
+    }
+    const d = await res.json();
+
+    const progressLabel = `${d.current_streak % 7} / 7`;
+
+    document.getElementById('stats-content').innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card accent">
+          <div class="label">Текущий стрик</div>
+          <div class="value">${d.current_streak}</div>
+          <div class="sub">дней подряд</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Рекорд</div>
+          <div class="value">${d.max_streak}</div>
+          <div class="sub">макс. стрик</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Комментарии</div>
+          <div class="value">${d.total_comments}</div>
+          <div class="sub">всего</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Активный день</div>
+          <div class="value" style="font-size:16px;margin-top:4px">${d.best_day || '—'}</div>
+          <div class="sub">чаще всего</div>
+        </div>
+      </div>
+      <div class="streak-bar">
+        <div class="top">
+          <span class="title">Прогресс к следующей неделе</span>
+          <span class="badge">${progressLabel}</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${d.streak_progress}%"></div>
+        </div>
+      </div>`;
+
+    // Теги
+    const tl = document.getElementById('tag-list');
+    if (d.tags && d.tags.length) {
+      tl.innerHTML = d.tags.map(t => `
+        <div class="tag-row">
+          <span class="tag-name">${t.name}</span>
+          <div class="tag-bar"><div class="tag-bar-fill" style="width:${t.pct}%"></div></div>
+          <span class="tag-count">${t.count}</span>
+        </div>`).join('');
+    } else {
+      tl.innerHTML = '<div class="error-msg" style="padding:16px">Нет данных по тегам</div>';
+    }
+
+  } catch (e) {
+    const msg = e.message === "not_found"
+      ? "Ты ещё не участвовал в обсуждениях.<br>Оставь комментарий под постом 🔥"
+      : "Не удалось загрузить данные.<br>Проверь соединение";
+    document.getElementById('stats-content').innerHTML = `
+      <div class="error-msg">
+        <i class="ti ti-wifi-off"></i>
+        ${msg}
+      </div>`;
+  }
+}
+
+// ─── Загрузка топа ───
+async function loadTop() {
+  try {
+    const res = await fetch(`${API_BASE}/top`);
+    const users = await res.json();
+    const medals = ['🥇','🥈','🥉'];
+    const topList = document.getElementById('top-list');
+    topList.innerHTML = users.map(u => {
+      const isMe = u.user_id === userId;
+      return `<div class="top-row${u.rank===1?' gold':''}">
+        <span class="rank r${u.rank}">${medals[u.rank-1] || u.rank}</span>
+        <div class="avatar">${(u.username||'??').slice(0,2).toUpperCase()}</div>
+        <div class="top-info">
+          <div class="top-name">@${u.username}${isMe?' <span class="badge" style="font-size:10px">Ты</span>':''}</div>
+          <div class="top-sub">рекорд: ${u.max_streak} 🔥</div>
+        </div>
+        <div class="streak-num">${u.streak} 🔥</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('top-list').innerHTML = '<div class="error-msg"><i class="ti ti-wifi-off"></i>Ошибка загрузки</div>';
+  }
+}
+
+// ─── Загрузка фестивалей из API ───
+async function loadFests() {
+  try {
+    const res = await fetch(`${API_BASE}/timers`);
+    const fests = await res.json();
+    const fl = document.getElementById('fest-list');
+
+    if (!fests.length) {
+      fl.innerHTML = '<div class="error-msg">Нет запланированных событий</div>';
+      return;
+    }
+
+    fl.innerHTML = fests.map(f => {
+      const countdown = f.started
+        ? '<div style="color:var(--neon);font-size:13px">🎉 Уже идёт!</div>'
+        : `<div class="countdown">
+            <div class="count-block"><span class="count-num">${f.days}</span><div class="count-label">Дней</div></div>
+            <div class="count-block"><span class="count-num">${f.hours}</span><div class="count-label">Часов</div></div>
+            <div class="count-block"><span class="count-num">${f.minutes}</span><div class="count-label">Минут</div></div>
+          </div>`;
+      const linkBtn = f.link ? `<a class="link-btn" href="${f.link}">🔗 Подробнее</a>` : '';
+      return `<div class="fest-card">
+        <div class="fest-name">${f.title}</div>
+        <div class="fest-date">${f.event_time.slice(0,10)}</div>
+        ${countdown}
+        ${linkBtn}
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('fest-list').innerHTML = '<div class="error-msg"><i class="ti ti-wifi-off"></i>Ошибка загрузки</div>';
+  }
+}
+
+// ─── Голосование (локальная версия, как было) ───
 const drivers = [
   {flag:'🇳🇱',name:'М. Ферстаппен',team:'Red Bull'},
   {flag:'🇬🇧',name:'Л. Норрис',team:'McLaren'},
@@ -229,15 +328,9 @@ const drivers = [
   {flag:'🇪🇸',name:'Ф. Алонсо',team:'Aston Martin'},
   {flag:'🇧🇷',name:'Г. Бортолето',team:'Audi'},
 ];
-
 let selected = null;
 let voted = false;
-
-const voteResults = {
-  'М. Ферстаппен': 38, 'Л. Норрис': 24, 'О. Пиастри': 17,
-  'Ш. Леклер': 9, 'Дж. Расселл': 5, 'Л. Хэмилтон': 4,
-  'Ф. Алонсо': 2, 'Г. Бортолето': 1
-};
+const voteResults = {'М. Ферстаппен':38,'Л. Норрис':24,'О. Пиастри':17,'Ш. Леклер':9,'Дж. Расселл':5,'Л. Хэмилтон':4,'Ф. Алонсо':2,'Г. Бортолето':1};
 
 function renderVote() {
   const va = document.getElementById('vote-area');
@@ -246,8 +339,8 @@ function renderVote() {
     const sorted = Object.entries(voteResults).sort((a,b)=>b[1]-a[1]);
     let html = '<div class="voted-msg">✅<br>Голос принят! Спасибо 🙌</div>';
     html += '<p class="section-title" style="margin-top:20px">Результаты</p>';
-    sorted.forEach(([name, cnt]) => {
-      const pct = Math.round(cnt / total * 100);
+    sorted.forEach(([name,cnt]) => {
+      const pct = Math.round(cnt/total*100);
       html += `<div class="results-bar-row">
         <div class="results-bar-top"><span class="results-bar-name">${name}</span><span class="results-bar-pct">${pct}%</span></div>
         <div class="results-track"><div class="results-fill" style="width:${pct}%"></div></div>
@@ -271,52 +364,14 @@ function renderVote() {
   va.innerHTML = grid;
 }
 
-function pick(name) { selected = name; renderVote(); }
-function confirm_vote() {
-  if (!selected) return;
-  voted = true;
-  voteResults[selected] = (voteResults[selected]||0) + 1;
-  renderVote();
-}
+function pick(name){selected=name;renderVote();}
+function confirm_vote(){if(!selected)return;voted=true;voteResults[selected]=(voteResults[selected]||0)+1;renderVote();}
+
+// ─── Запуск ───
+loadStats();
+loadTop();
+loadFests();
 renderVote();
-
-const now = new Date();
-const fests = [
-  {name:'Comic Con Astana 2025', date: new Date(now.getFullYear(), 5, 14), link:'#'},
-  {name:'Mora Festival', date: new Date(now.getFullYear(), 7, 2), link:'#'},
-  {name:'F1 Grand Prix Казахстан', date: new Date(now.getFullYear(), 8, 20), link:'#'},
-];
-
-function timeTo(target) {
-  const diff = target - now;
-  if (diff <= 0) return null;
-  const d = Math.floor(diff/86400000);
-  const h = Math.floor((diff%86400000)/3600000);
-  const m = Math.floor((diff%3600000)/60000);
-  return {d,h,m};
-}
-
-const fl = document.getElementById('fest-list');
-fests.forEach(f => {
-  const t = timeTo(f.date);
-  const dateStr = f.date.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
-  let countdown = '';
-  if (t) {
-    countdown = `<div class="countdown">
-      <div class="count-block"><span class="count-num">${t.d}</span><div class="count-label">Дней</div></div>
-      <div class="count-block"><span class="count-num">${t.h}</span><div class="count-label">Часов</div></div>
-      <div class="count-block"><span class="count-num">${t.m}</span><div class="count-label">Минут</div></div>
-    </div>`;
-  } else {
-    countdown = '<div style="color:var(--neon);font-size:13px">🎉 Уже идёт!</div>';
-  }
-  fl.innerHTML += `<div class="fest-card">
-    <div class="fest-name">${f.name}</div>
-    <div class="fest-date">${dateStr}</div>
-    ${countdown}
-    <a class="link-btn" href="${f.link}">🔗 Подробнее</a>
-  </div>`;
-});
 </script>
 </body>
 </html>
